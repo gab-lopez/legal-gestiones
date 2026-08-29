@@ -1,0 +1,30 @@
+# Variables de entorno — NUNCA subir al repositorio
+.env
+frontend/.env.local
+frontend/.env*.local
+
+# Secretos de configuración — NUNCA subir al repositorio
+# (contiene ClientSecret de Azure AD y contraseña de SQL Server en texto plano)
+backend/appsettings.json
+backend/appsettings.Development.json
+
+# Docker
+.docker/
+
+# .NET
+backend/bin/
+backend/obj/
+backend/*.user
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+
+# Archivos subidos por usuarios (documentos con datos personales: DPI, RTU, contratos)
+backend/uploads/
+
+# Respaldos de base de datos
+*.bak
+backups/
+

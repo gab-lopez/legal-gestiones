@@ -1,0 +1,96 @@
+Autenticación y acceso
+Listo
+Login con Microsoft Entra ID
+Solo usuarios @rvcuatro.com — flujo SPA OAuth2
+Listo
+Roles: Administrador, Gestor Legal, Solicitante
+Cada rol ve y puede hacer cosas diferentes
+Dashboard
+Listo
+Listado de solicitudes con semáforo SLA
+Verde / amarillo / rojo según tiempo de resolución
+Listo
+Código correlativo SOL-YYYY-XXXX
+Probar
+Filtros por estado y tipo de solicitud
+Verificar que funcionen correctamente
+Nueva solicitud
+Listo
+Formulario dinámico por tipo de documento
+Campos condicionales según tipo de arrendatario
+Listo
+Selector de sociedad arrendante
+Carga desde BD con datos completos
+Listo
+Arrendatario: persona individual o jurídica
+Campos y documentos diferentes según tipo
+Listo
+Fiador opcional: individual o jurídico
+Se habilita con toggle — campos condicionales
+Listo
+Carga de documentos adjuntos por parte
+DPI, RTU, Recibo de servicios, RL, etc.
+Probar
+Validación de campos obligatorios condicionales
+Que no valide campos ocultos por condición
+Detalle de solicitud
+Listo
+Vista completa con información general y sociedad
+Datos del representante y Registro Mercantil visibles
+Listo
+Documentos adjuntos agrupados por parte
+Con descarga y previsualización
+Listo
+Historial de eventos con timeline
+Creación, cambios de estado, ediciones, correcciones
+Listo
+Edición inline de datos del formulario (gestor)
+Guardar silenciosamente sin notificar al solicitante
+Listo
+Marcar campos para corrección del solicitante
+Con mensaje general y cambio de estado a "Pendiente de info"
+Listo
+Cambio de estado con comentario
+Probar
+Generación del borrador Word
+Verificar que todos los marcadores se reemplacen correctamente
+Probar
+Bloque condicional del fiador en el documento
+Que aparezca/desaparezca según si se incluyó o no
+Panel administrador
+Listo
+Sociedades: ver, crear y editar
+Datos completos del representante y Registro Mercantil
+Listo
+Usuarios: crear, editar rol/departamento, desactivar
+Listo
+Unidades: CRUD + departamentos + mover usuarios
+Listo
+Empresas: ver y editar
+Listo
+Tipos y SLAs: ver tiempos de resolución
+Probar
+Editar datos de sociedad y reflejarse en contratos
+Cambiar notario/acta y verificar que el siguiente borrador lo tome
+Generación de documentos
+Listo
+Arrendamiento Local Comercial — plantilla con marcadores
+31 marcadores dinámicos incluyendo bloque condicional fiador
+Pendiente
+Arrendamiento Kiosko — actualizar plantilla
+Aplicar los mismos marcadores y bloque fiador
+Pendiente
+Arrendamiento Oficina — actualizar plantilla
+Aplicar los mismos marcadores y bloque fiador
+Área legal
+Completar datos de Registro Mercantil de todas las sociedades
+Pendiente de reunión con área legal
+Pendientes futuros
+Pendiente
+Notificaciones por correo al gestor y solicitante
+Pendiente
+Flujo de aprobación: subir documento firmado
+Pendiente
+Panel de reportes por unidad y tipo de solicitud
+Pendiente
+Más tipos de documentos (Pagaré, PCV, Servicios, etc.)
