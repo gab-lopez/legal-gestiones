@@ -7,11 +7,11 @@
 # Requisitos: Docker Desktop corriendo y el contenedor "legal_sqlserver" activo
 # (docker compose up -d en la carpeta del proyecto).
 #
-# Qué hace:
+# Que hace:
 #   1. Corre BACKUP DATABASE dentro del contenedor (genera un .bak en su volumen)
-#   2. Copia ese .bak hacia .\backups en tu máquina, con fecha en el nombre
-#   3. NO sube este archivo a git (backups/ y *.bak ya están en .gitignore) —
-#      guárdalo también en OneDrive/USB/donde prefieras, es tu respaldo real de datos.
+#   2. Copia ese .bak hacia .\backups en tu maquina, con fecha en el nombre
+#   3. NO sube este archivo a git (backups/ y *.bak ya estan en .gitignore),
+#      guardalo tambien en OneDrive/USB/donde prefieras, es tu respaldo real de datos.
 # ================================================================
 
 $ErrorActionPreference = "Stop"
@@ -26,26 +26,29 @@ if (-not (Test-Path $rutaLocal)) {
     New-Item -ItemType Directory -Path $rutaLocal | Out-Null
 }
 
-Write-Host "Verificando que el contenedor '$contenedor' esté corriendo..." -ForegroundColor Cyan
+Write-Host "Verificando que el contenedor '$contenedor' este corriendo..." -ForegroundColor Cyan
 $estado = docker ps --filter "name=$contenedor" --format "{{.Names}}"
 if ($estado -ne $contenedor) {
-    Write-Host "El contenedor '$contenedor' no está corriendo. Levántalo con 'docker compose up -d' e intenta de nuevo." -ForegroundColor Red
+    Write-Host "El contenedor '$contenedor' no esta corriendo. Levantalo con 'docker compose up -d' e intenta de nuevo." -ForegroundColor Red
     exit 1
 }
 
-# Pide la contraseña de SA en lugar de leerla de un archivo, para no dejarla en este script
-$saPassword = Read-Host "Contraseña de SA (la misma del .env)" -AsSecureString
+# Pide la contrasena de SA en lugar de leerla de un archivo, para no dejarla en este script
+$saPassword = Read-Host "Contrasena de SA (la misma del .env)" -AsSecureString
 $saPasswordPlano = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
     [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
 )
 
 Write-Host "Ejecutando BACKUP DATABASE dentro del contenedor..." -ForegroundColor Cyan
-docker exec $contenedor /opt/mssql-tools18/bin/sqlcmd `
-    -S localhost -U sa -P "$saPasswordPlano" -C `
-    -Q "BACKUP DATABASE [$baseDatos] TO DISK = N'/var/opt/mssql/data/$nombreBak' WITH INIT"
+docker exec $contenedor /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$saPasswordPlano" -C -Q "BACKUP DATABASE [$baseDatos] TO DISK = N'/var/opt/mssql/data/$nombreBak' WITH INIT"
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Falló el BACKUP DATABASE. Revisa la contraseña o el estado del contenedor." -ForegroundColor Red
+    Write-Host "Fallo el BACKUP DATABASE con mssql-tools18. Probando con la ruta antigua mssql-tools..." -ForegroundColor Yellow
+    docker exec $contenedor /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$saPasswordPlano" -Q "BACKUP DATABASE [$baseDatos] TO DISK = N'/var/opt/mssql/data/$nombreBak' WITH INIT"
+}
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Fallo el BACKUP DATABASE. Revisa la contrasena o el estado del contenedor." -ForegroundColor Red
     exit 1
 }
 
@@ -53,4 +56,4 @@ Write-Host "Copiando el .bak fuera del contenedor..." -ForegroundColor Cyan
 docker cp "${contenedor}:/var/opt/mssql/data/$nombreBak" "$rutaLocal\$nombreBak"
 
 Write-Host "Listo. Respaldo guardado en: $rutaLocal\$nombreBak" -ForegroundColor Green
-Write-Host "Recuerda copiar este archivo también fuera de esta carpeta (OneDrive, USB, etc.) — no se sube a git." -ForegroundColor Yellow
+Write-Host "Recuerda copiar este archivo tambien fuera de esta carpeta (OneDrive, USB, etc.), no se sube a git." -ForegroundColor Yellow
