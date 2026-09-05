@@ -3,16 +3,19 @@ import { MsalAuthenticationTemplate } from '@azure/msal-react';
 import { InteractionType } from '@azure/msal-browser';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { loginRequest } from './authConfig';
-import { LayoutDashboard, FilePlus, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FilePlus, ClipboardList, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import NuevaSolicitud from './pages/NuevaSolicitud';
 import DetalleSolicitud from './pages/DetalleSolicitud';
+import MisSolicitudes from './pages/MisSolicitudes';
 import Administrador from './pages/Administrador';
+import DevUserSwitcher from './components/DevUserSwitcher';
 
 const navItems = [
   { to: '/',                label: 'Dashboard',       Icono: LayoutDashboard },
   { to: '/nueva-solicitud', label: 'Nueva solicitud', Icono: FilePlus },
+  { to: '/mis-solicitudes', label: 'Mis solicitudes', Icono: ClipboardList },
 ];
 
 function Sidebar({ expandido, setExpandido }) {
@@ -149,6 +152,7 @@ function Layout() {
         <Routes>
           <Route path="/"                element={<Dashboard />} />
           <Route path="/nueva-solicitud" element={<NuevaSolicitud />} />
+          <Route path="/mis-solicitudes" element={<MisSolicitudes />} />
           <Route path="/solicitudes/:id" element={<DetalleSolicitud />} />
           <Route path="/admin"           element={<Administrador />} />
           <Route path="*"                element={<Navigate to="/" />} />
@@ -168,6 +172,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Layout />
+          <DevUserSwitcher />
         </AuthProvider>
       </BrowserRouter>
     );

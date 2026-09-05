@@ -47,6 +47,15 @@ public class Solicitud
     [Column("motivo_bloqueo")]
     public string? MotivoBloqueo { get; set; }
 
+    // Evitan que el SlaAlertaBackgroundService reenvie la misma alerta en
+    // cada corrida. Se resetean solo si alguien vuelve a abrir la solicitud
+    // (no hay flujo automatico para eso todavia).
+    [Column("alerta_sla_enviada")]
+    public bool AlertaSlaEnviada { get; set; } = false;
+
+    [Column("sla_vencido_notificado")]
+    public bool SlaVencidoNotificado { get; set; } = false;
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

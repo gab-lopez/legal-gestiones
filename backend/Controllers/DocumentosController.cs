@@ -16,11 +16,13 @@ public class DocumentosController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IWebHostEnvironment _env;
+    private readonly INotificacionesService _notificaciones;
 
-    public DocumentosController(AppDbContext context, IWebHostEnvironment env)
+    public DocumentosController(AppDbContext context, IWebHostEnvironment env, INotificacionesService notificaciones)
     {
-        _context = context;
-        _env     = env;
+        _context        = context;
+        _env            = env;
+        _notificaciones = notificaciones;
     }
 
 [HttpPost("generar/{solicitudId}")]
@@ -292,6 +294,8 @@ public async Task<IActionResult> Generar(int solicitudId, [FromQuery] int usuari
 
     await _context.SaveChangesAsync();
 
+    await _notificaciones.DocumentoGeneradoAsync(solicitudId, nombreArchivo);
+
     return Ok(new { mensaje = "Documento generado correctamente.", ruta = rutaRelativa, nombre = nombreArchivo });
 }
 
@@ -354,15 +358,28 @@ public async Task<IActionResult> Generar(int solicitudId, [FromQuery] int usuari
     {
         var resultado = xml;
 
+        // Cruce obligatorio de un límite de run de Word (</w:t>...<w:t>), con
+        // cualquier cosa que no sea otro <w:t> en medio (ej. <w:proofErr/>).
+        const string cruceRun = @"</w:t>(?:(?!<w:t).)*<w:t[^>]*>";
+
+        // IMPORTANTE: a diferencia de la versión anterior, aquí las llaves de
+        // apertura "{{" y de cierre "}}" también pueden venir partidas en dos
+        // runs distintos (Word a veces inserta un <w:proofErr/> justo entre el
+        // primer "{" y el segundo "{"). La versión anterior solo sabía unir el
+        // CONTENIDO entre un "{{" y un "}}" ya reconocidos como tales, pero no
+        // reconocía un "{{"/"}}" partido en sí mismo — eso dejaba marcadores
+        // como {{nombre_fiador}} sin reemplazar cuando Word los fragmentaba así,
+        // y en el caso de {{#fiador}}/{{/fiador}} rompía el bloque condicional
+        // completo (quedaba el texto literal "{{#fiador}}" en el documento).
         var patron = new Regex(
-            @"(\{\{)" +
-            @"((?:[^{}]|</w:t>(?:(?!<w:t).)*<w:t[^>]*>)*?)" +
-            @"(\}\})",
+            @"\{(?:" + cruceRun + @")?\{" +
+            @"((?:[^{}]|" + cruceRun + @")*?)" +
+            @"\}(?:" + cruceRun + @")?\}",
             RegexOptions.Singleline
         );
 
         resultado = patron.Replace(resultado, m => {
-            var contenido = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "");
+            var contenido = Regex.Replace(m.Groups[1].Value, @"<[^>]+>", "");
             contenido = contenido.Replace("*", "").Trim();
             if (string.IsNullOrEmpty(contenido)) return m.Value;
             return "{{" + contenido + "}}";
@@ -377,12 +394,22 @@ public async Task<IActionResult> Generar(int solicitudId, [FromQuery] int usuari
         return resultado;
     }
 
+    // Documento base único (con bloques condicionales) que reemplaza a las tres
+    // plantillas separadas que existían antes. Las anteriores quedaron archivadas
+    // en backend/plantillas/Anteriores/ como referencia.
+    //
+    // Kiosko y Oficina TODAVIA NO se enrutan a este documento base: su contenido
+    // legal (ej. "los locales comerciales") es específico de Local Comercial, y
+    // generar un contrato de Kiosko/Oficina con ese texto produciría un documento
+    // legalmente incorrecto. Quedan pendientes hasta que el área legal entregue
+    // sus variantes y se incorporen como nuevos bloques condicionales al mismo
+    // documento base (ver tarea "Implementación y pruebas de generación con
+    // documento base único").
     private static string? ObtenerNombrePlantilla(string? tipoNombre) => tipoNombre switch
     {
-        "Arrendamiento - Local Comercial" => "CONTRATO_ARRENDAMIENTO_LOCAL_COMERCIAL.docx",
-        "Arrendamiento - Kiosko"          => "CONTRATO_ARRENDAMIENTO_KIOSKO.docx",
-        "Arrendamiento - Oficina"         => "CONTRATO_ARRENDAMIENTO_OFICINA.docx",
-        "Contrato de arrendamiento"       => "CONTRATO_ARRENDAMIENTO_PLANTILLA.docx",
+        "Arrendamiento - Local Comercial" => "CONTRATO_ARRENDAMIENTO_BASE.docx",
+        "Arrendamiento - Kiosko"          => null, // pendiente: plantilla del área legal
+        "Arrendamiento - Oficina"         => null, // pendiente: plantilla del área legal
         _ => null
     };
 

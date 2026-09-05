@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using backend.Auth;
 using backend.Data;
+using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,19 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+// Email:Enabled = false (default, mientras no se decide el proveedor SMTP)
+// usa NullEmailService, que solo loguea el correo que se hubiera mandado.
+// Cuando se configure Email:Smtp en appsettings, poner Email:Enabled = true
+// activa el envio real sin tocar ningun controlador ni NotificacionesService.
+var emailEnabled = builder.Configuration.GetValue("Email:Enabled", false);
+if (emailEnabled)
+    builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+else
+    builder.Services.AddScoped<IEmailService, NullEmailService>();
+
+builder.Services.AddScoped<INotificacionesService, NotificacionesService>();
+builder.Services.AddHostedService<SlaAlertaBackgroundService>();
 
 var app = builder.Build();
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using backend.Services;
 
 namespace backend.Controllers;
 
@@ -10,7 +11,13 @@ namespace backend.Controllers;
 public class SolicitudesController : ControllerBase
 {
     private readonly AppDbContext _context;
-    public SolicitudesController(AppDbContext context) => _context = context;
+    private readonly INotificacionesService _notificaciones;
+
+    public SolicitudesController(AppDbContext context, INotificacionesService notificaciones)
+    {
+        _context        = context;
+        _notificaciones = notificaciones;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int? estadoId, [FromQuery] int? solicitanteId)
@@ -131,6 +138,8 @@ public class SolicitudesController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        await _notificaciones.SolicitudCreadaAsync(solicitud.Id);
+
         return CreatedAtAction(nameof(GetById), new { id = solicitud.Id },
             new { solicitud.Id, solicitud.Codigo });
     }
@@ -141,7 +150,9 @@ public class SolicitudesController : ControllerBase
         var solicitud = await _context.Solicitudes.FindAsync(id);
         if (solicitud == null) return NotFound();
 
-        var estadoAnterior = solicitud.EstadoId.ToString();
+        var estadoAnteriorId     = solicitud.EstadoId;
+        var estadoAnteriorNombre = (await _context.EstadosSolicitud.FindAsync(estadoAnteriorId))?.Nombre ?? "desconocido";
+        var estadoAnterior       = estadoAnteriorId.ToString();
         solicitud.EstadoId  = dto.EstadoId;
         solicitud.UpdatedAt = DateTime.UtcNow;
 
@@ -167,6 +178,10 @@ public class SolicitudesController : ControllerBase
         });
 
         await _context.SaveChangesAsync();
+
+        if (estadoAnteriorId != dto.EstadoId)
+            await _notificaciones.CambioEstadoAsync(id, estadoAnteriorNombre);
+
         return NoContent();
     }
 
@@ -236,6 +251,82 @@ public async Task<IActionResult> GuardarObservaciones(int id, [FromBody] Observa
     solicitud.BloqueadaPorInfo = true;
     solicitud.MotivoBloqueo    = dto.MensajeGeneral;
     solicitud.UpdatedAt        = DateTime.UtcNow;
+
+    await _context.SaveChangesAsync();
+
+    await _notificaciones.PendienteCorreccionAsync(id);
+
+    return NoContent();
+}
+
+// Bandeja de correcciones del solicitante: qué campos marcó el gestor y por qué.
+// Se basa en el último evento "solicitud_correccion" del historial (el mismo que
+// guarda GuardarObservaciones). Si la solicitud no está bloqueada por info, no
+// hay nada pendiente que corregir.
+[HttpGet("{id}/observaciones-pendientes")]
+public async Task<IActionResult> GetObservacionesPendientes(int id)
+{
+    var solicitud = await _context.Solicitudes.FindAsync(id);
+    if (solicitud == null) return NotFound();
+
+    if (!solicitud.BloqueadaPorInfo)
+        return Ok(new { bloqueada = false, camposConObservacion = new Dictionary<string, string>(), mensajeGeneral = (string?)null });
+
+    var ultimaCorreccion = await _context.SolicitudHistorial
+        .Where(h => h.SolicitudId == id && h.TipoEvento == "solicitud_correccion")
+        .OrderByDescending(h => h.CreatedAt)
+        .FirstOrDefaultAsync();
+
+    var campos = new Dictionary<string, string>();
+    if (ultimaCorreccion?.ValorNuevo != null)
+    {
+        try
+        {
+            campos = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(ultimaCorreccion.ValorNuevo)
+                     ?? new Dictionary<string, string>();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Historial corrupto o de un formato anterior — se responde vacío en vez de fallar.
+        }
+    }
+
+    return Ok(new
+    {
+        bloqueada = true,
+        camposConObservacion = campos,
+        mensajeGeneral = solicitud.MotivoBloqueo
+    });
+}
+
+// El solicitante reenvía los datos corregidos: actualiza datos_json, quita el
+// bloqueo y regresa la solicitud a "En revisión" (2) para que el gestor la
+// vuelva a evaluar.
+[HttpPut("{id}/responder-correccion")]
+public async Task<IActionResult> ResponderCorreccion(int id, [FromBody] ActualizarDatosDto dto)
+{
+    var solicitud = await _context.Solicitudes.FindAsync(id);
+    if (solicitud == null) return NotFound();
+
+    var datos = await _context.SolicitudDatos.FindAsync(id);
+    if (datos == null) return NotFound();
+
+    datos.DatosJson = dto.DatosJson;
+    datos.Version   += 1;
+    datos.UpdatedAt  = DateTime.UtcNow;
+
+    solicitud.EstadoId         = 2; // En revisión
+    solicitud.BloqueadaPorInfo = false;
+    solicitud.MotivoBloqueo    = null;
+    solicitud.UpdatedAt        = DateTime.UtcNow;
+
+    _context.SolicitudHistorial.Add(new SolicitudHistorial
+    {
+        SolicitudId = id,
+        UsuarioId   = dto.UsuarioId,
+        TipoEvento  = "correccion_enviada",
+        Comentario  = "El solicitante envió los datos corregidos."
+    });
 
     await _context.SaveChangesAsync();
     return NoContent();

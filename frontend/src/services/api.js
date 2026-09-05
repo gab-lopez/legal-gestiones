@@ -1,8 +1,21 @@
 import axios from 'axios';
 
+const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true';
+
 const api = axios.create({
   baseURL: 'http://localhost:5239/api',
 });
+
+// Modo sin login (Auth:Enabled=false en el backend): si hay un usuario de
+// prueba elegido en el selector, lo mandamos en un header para que
+// BypassAuthHandler "impersone" a ese correo en vez del de appsettings.
+if (AUTH_DISABLED) {
+  api.interceptors.request.use((config) => {
+    const devUser = localStorage.getItem('devUserEmail');
+    if (devUser) config.headers['X-Dev-User'] = devUser;
+    return config;
+  });
+}
 
 export const tiposSolicitudService = {
   getAll: () => api.get('/tipossolicitud'),
@@ -29,13 +42,15 @@ export const usuariosService = {
 };
 
 export const solicitudesService = {
-  getAll:              (filtros) => api.get('/solicitudes', { params: filtros }),
-  getById:             (id)      => api.get(`/solicitudes/${id}`),
-  create:              (data)    => api.post('/solicitudes', data),
-  cambiarEstado:       (id, data) => api.put(`/solicitudes/${id}/estado`, data),
-  getHistorial:        (id)      => api.get(`/solicitudes/${id}/historial`),
-  actualizarDatos:     (id, data) => api.put(`/solicitudes/${id}/datos`, data),
-  guardarObservaciones:(id, data) => api.put(`/solicitudes/${id}/observaciones`, data),
+  getAll:                    (filtros) => api.get('/solicitudes', { params: filtros }),
+  getById:                   (id)      => api.get(`/solicitudes/${id}`),
+  create:                    (data)    => api.post('/solicitudes', data),
+  cambiarEstado:              (id, data) => api.put(`/solicitudes/${id}/estado`, data),
+  getHistorial:               (id)      => api.get(`/solicitudes/${id}/historial`),
+  actualizarDatos:            (id, data) => api.put(`/solicitudes/${id}/datos`, data),
+  guardarObservaciones:       (id, data) => api.put(`/solicitudes/${id}/observaciones`, data),
+  getObservacionesPendientes: (id)      => api.get(`/solicitudes/${id}/observaciones-pendientes`),
+  responderCorreccion:        (id, data) => api.put(`/solicitudes/${id}/responder-correccion`, data),
 };
 
 export default api;

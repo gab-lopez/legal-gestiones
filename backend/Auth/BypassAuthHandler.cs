@@ -9,6 +9,11 @@ namespace backend.Auth;
 // Autentica automáticamente cada request como el usuario definido en Auth:DevUserEmail,
 // para no tener que tocar los [Authorize] de cada controlador ni la lógica que depende
 // de /api/auth/me para resolver el usuario actual.
+//
+// El frontend puede mandar el header "X-Dev-User" con un correo distinto (ver el
+// selector de usuario de prueba en la UI) para "impersonar" a otro usuario sin tocar
+// este archivo ni reiniciar el backend. Si el header no viene, se usa el valor por
+// defecto de appsettings.
 public class BypassAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private readonly IConfiguration _config;
@@ -25,11 +30,14 @@ public class BypassAuthHandler : AuthenticationHandler<AuthenticationSchemeOptio
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var correo = _config["Auth:DevUserEmail"];
+        var correoHeader = Context.Request.Headers["X-Dev-User"].ToString();
+        var correo = !string.IsNullOrWhiteSpace(correoHeader)
+            ? correoHeader
+            : _config["Auth:DevUserEmail"];
 
         if (string.IsNullOrWhiteSpace(correo))
             return Task.FromResult(AuthenticateResult.Fail(
-                "Auth:Enabled está en false pero falta Auth:DevUserEmail en appsettings."));
+                "Auth:Enabled está en false pero falta Auth:DevUserEmail en appsettings (o el header X-Dev-User)."));
 
         var claims = new[]
         {
