@@ -23,6 +23,12 @@ public class SolicitudAdjunto
     [Column("es_documento_generado")]
     public bool EsDocumentoGenerado { get; set; } = false;
 
+    // El borrador que arma el sistema (EsDocumentoGenerado) y el documento
+    // final ya firmado que sube el gestor (EsDocumentoFirmado) son cosas
+    // distintas y ambas pueden convivir en la misma solicitud.
+    [Column("es_documento_firmado")]
+    public bool EsDocumentoFirmado { get; set; } = false;
+
     public int Version { get; set; } = 1;
 
     [Column("estado_revision")]

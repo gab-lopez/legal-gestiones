@@ -10,6 +10,7 @@ public interface INotificacionesService
     Task CambioEstadoAsync(int solicitudId, string estadoAnteriorNombre);
     Task PendienteCorreccionAsync(int solicitudId);
     Task DocumentoGeneradoAsync(int solicitudId, string nombreArchivo);
+    Task DocumentoFirmadoAsync(int solicitudId, string nombreArchivo);
     Task AlertaSlaProximaAsync(int solicitudId);
     Task SlaVencidoAsync(int solicitudId);
 }

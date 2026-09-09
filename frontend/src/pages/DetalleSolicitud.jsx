@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { solicitudesService, archivosService, documentosService, sociedadesService } from '../services/api';
-import { ArrowLeft, Clock, CheckCircle, AlertTriangle, XCircle, FileText, User, Building2, Download, Eye, FileCheck, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, AlertTriangle, XCircle, FileText, User, Building2, Download, Eye, FileCheck, Edit2, Save, X, Stamp } from 'lucide-react';
 
 const coloresSla = {
   ok:         { bg: '#dcfce7', color: '#15803d', label: 'En tiempo',   Icono: CheckCircle },
@@ -33,6 +33,9 @@ export default function DetalleSolicitud() {
   const [generando, setGenerando]     = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
   const [sociedades, setSociedades]   = useState([]);
+  const [subiendoFirmado, setSubiendoFirmado]         = useState(false);
+  const [mensajeExitoFirmado, setMensajeExitoFirmado] = useState('');
+  const [errorFirmado, setErrorFirmado]               = useState('');
 
   const [editandoDatos, setEditandoDatos]           = useState(false);
   const [datosEditados, setDatosEditados]           = useState({});
@@ -91,6 +94,28 @@ export default function DetalleSolicitud() {
       setTimeout(() => setMensajeExito(''), 4000);
     } catch { alert('Error al generar el documento.'); }
     finally { setGenerando(false); }
+  };
+
+  const subirDocumentoFirmado = async (e) => {
+    const archivo = e.target.files?.[0];
+    e.target.value = ''; // permite volver a elegir el mismo archivo despues
+    if (!archivo) return;
+
+    setSubiendoFirmado(true);
+    setErrorFirmado('');
+    setMensajeExitoFirmado('');
+    try {
+      await archivosService.subirDocumentoFirmado(id, usuario.id, archivo);
+      const res = await solicitudesService.getById(id);
+      setDatos(res.data);
+      solicitudesService.getHistorial(id).then(r => setHistorial(r.data));
+      setMensajeExitoFirmado('Documento firmado subido correctamente.');
+      setTimeout(() => setMensajeExitoFirmado(''), 4000);
+    } catch (err) {
+      setErrorFirmado(err.response?.data?.mensaje || 'Error al subir el documento firmado.');
+    } finally {
+      setSubiendoFirmado(false);
+    }
   };
 
   const guardarDatos = async () => {
@@ -359,7 +384,7 @@ export default function DetalleSolicitud() {
                     {i < historial.length - 1 && (
                       <div style={{ position: 'absolute', left: '11px', top: '24px', bottom: '0', width: '2px', background: 'var(--gris-borde)' }} />
                     )}
-                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: h.tipoEvento === 'creacion' ? 'var(--azul)' : h.tipoEvento === 'solicitud_correccion' ? '#d97706' : 'var(--azul-claro)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: h.tipoEvento === 'creacion' ? 'var(--azul)' : h.tipoEvento === 'solicitud_correccion' ? '#d97706' : h.tipoEvento === 'documento_firmado' ? '#15803d' : 'var(--azul-claro)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />
                     </div>
                     <div style={{ flex: 1, paddingTop: '2px' }}>
@@ -368,6 +393,7 @@ export default function DetalleSolicitud() {
                           {h.tipoEvento === 'creacion'             ? 'Solicitud creada' :
                            h.tipoEvento === 'cambio_estado'        ? `Estado → ${nombreEstado(h.valorNuevo)}` :
                            h.tipoEvento === 'documento_generado'   ? 'Borrador generado' :
+                           h.tipoEvento === 'documento_firmado'    ? 'Documento firmado subido' :
                            h.tipoEvento === 'edicion_datos'        ? 'Datos editados por gestor' :
                            h.tipoEvento === 'solicitud_correccion' ? 'Correcciones solicitadas al solicitante' :
                            h.tipoEvento}
@@ -399,6 +425,14 @@ export default function DetalleSolicitud() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {(() => {
+                  // La version oficial/vigente del documento firmado es la de
+                  // numero mas alto; las anteriores quedan como historico
+                  // (ver Tarea 19: diferenciacion de version oficial).
+                  const maxVersionFirmado = Math.max(
+                    0,
+                    ...(adjuntos?.filter(a => a.esDocumentoFirmado).map(a => a.version) || [])
+                  );
+
                   const grupos = {};
                   adjuntos?.forEach(adj => {
                     const partes = adj.rutaArchivo?.split('/');
@@ -418,12 +452,20 @@ export default function DetalleSolicitud() {
                           const extension = adj.rutaArchivo?.split('.').pop().toLowerCase();
                           const esImagen  = ['jpg', 'jpeg', 'png'].includes(extension);
                           const esPdf     = extension === 'pdf';
+                          const esVersionVigente = adj.esDocumentoFirmado && adj.version === maxVersionFirmado;
+                          const esVersionAnterior = adj.esDocumentoFirmado && !esVersionVigente;
                           return (
-                            <div key={adj.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', border: '1px solid var(--gris-borde)', borderRadius: 'var(--radio)', background: adj.esDocumentoGenerado ? '#eff6ff' : '#fafbfc' }}>
-                              <FileText size={13} color={adj.esDocumentoGenerado ? 'var(--azul-claro)' : 'var(--gris-texto)'} />
+                            <div key={adj.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', border: '1px solid var(--gris-borde)', borderRadius: 'var(--radio)', background: esVersionVigente ? '#f0fdf4' : esVersionAnterior ? '#fafbfc' : adj.esDocumentoGenerado ? '#eff6ff' : '#fafbfc', opacity: esVersionAnterior ? 0.65 : 1 }}>
+                              <FileText size={13} color={esVersionVigente ? '#15803d' : adj.esDocumentoGenerado ? 'var(--azul-claro)' : 'var(--gris-texto)'} />
                               <span style={{ flex: 1, fontSize: '0.8rem', color: 'var(--azul)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {adj.nombreArchivo}
                               </span>
+                              {esVersionVigente && (
+                                <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 600, marginRight: '2px' }}>✓ Vigente</span>
+                              )}
+                              {esVersionAnterior && (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--gris-texto)', fontWeight: 600, marginRight: '2px' }}>Versión anterior</span>
+                              )}
                               {adj.esDocumentoGenerado && (
                                 <span style={{ fontSize: '0.68rem', color: 'var(--azul-claro)', fontWeight: 600, marginRight: '2px' }}>Generado</span>
                               )}
@@ -466,6 +508,23 @@ export default function DetalleSolicitud() {
                 {mensajeExito && (
                   <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#15803d', fontWeight: 600, textAlign: 'center' }}>
                     ✓ {mensajeExito}
+                  </div>
+                )}
+
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: subiendoFirmado ? 'var(--gris-suave)' : '#15803d', color: subiendoFirmado ? 'var(--gris-texto)' : '#fff', border: 'none', borderRadius: 'var(--radio)', padding: '0.65rem 1rem', fontSize: '0.85rem', fontWeight: 600, cursor: subiendoFirmado ? 'default' : 'pointer', width: '100%', justifyContent: 'center', fontFamily: "'Montserrat', sans-serif", marginTop: '0.6rem', boxSizing: 'border-box' }}>
+                  <Stamp size={15} />
+                  {subiendoFirmado ? 'Subiendo...' : 'Subir documento firmado'}
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={subirDocumentoFirmado} disabled={subiendoFirmado} style={{ display: 'none' }} />
+                </label>
+                {mensajeExitoFirmado && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#15803d', fontWeight: 600, textAlign: 'center' }}>
+                    ✓ {mensajeExitoFirmado}
+                  </div>
+                )}
+                {errorFirmado && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 600, textAlign: 'center' }}>
+                    {errorFirmado}
                   </div>
                 )}
               </div>

@@ -100,6 +100,25 @@ public class NotificacionesService : INotificacionesService
             await _email.EnviarAsync(s.Responsable.Correo, asunto, cuerpo);
     }
 
+    public async Task DocumentoFirmadoAsync(int solicitudId, string nombreArchivo)
+    {
+        var s = await CargarConSolicitanteAsync(solicitudId);
+        if (s == null) return;
+
+        var asunto = $"Documento firmado disponible: solicitud {s.Codigo}";
+        var cuerpo = Plantilla(
+            s.Solicitante != null ? $"Hola {s.Solicitante.Nombres}," : "Hola,",
+            $"Ya está disponible el documento final firmado (<strong>{nombreArchivo}</strong>) de tu solicitud <strong>{s.Codigo}</strong>.",
+            "Puedes descargarlo desde el detalle de la solicitud."
+        );
+
+        if (s.Solicitante != null)
+            await _email.EnviarAsync(s.Solicitante.Correo, asunto, cuerpo);
+
+        if (s.Responsable != null)
+            await _email.EnviarAsync(s.Responsable.Correo, asunto, cuerpo);
+    }
+
     public async Task AlertaSlaProximaAsync(int solicitudId)
     {
         var s = await CargarConSolicitanteAsync(solicitudId);

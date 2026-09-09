@@ -70,6 +70,15 @@ export const archivosService = {
   },
   descargar: (ruta) => api.get(`/archivos/descargar?ruta=${encodeURIComponent(ruta)}`, { responseType: 'blob' }),
   previewUrl: (ruta) => `http://localhost:5239/api/archivos/preview?ruta=${encodeURIComponent(ruta)}`,
+  subirDocumentoFirmado: (solicitudId, subidoPor, archivo) => {
+    const formData = new FormData();
+    formData.append('solicitudId', solicitudId);
+    formData.append('subidoPor',   subidoPor);
+    formData.append('archivo',     archivo);
+    return api.post('/archivos/subir-firmado', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 export const documentosService = {
